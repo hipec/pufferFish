@@ -1,0 +1,30 @@
+TARGETS := SORir CilkSort LULESHir SRADir SOR LULESH SRAD
+
+all: clean $(TARGETS) clean-obj
+
+LULESH: lulesh.cpp
+	$(CXX) -O3 -DUSE_REGULAR -DSEQUENTIAL -I./inc -o $@ $^ 
+
+SOR: sor1d.cpp
+	$(CXX) -O3 -DUSE_REGULAR -DSEQUENTIAL -I./inc -o $@ $^ 
+
+LULESHir: lulesh.cpp
+	$(CXX) -O3 -DSEQUENTIAL -I./inc -o $@ $^ 
+
+SORir: sor1d.cpp
+	$(CXX) -O3 -DSEQUENTIAL -I./inc -o $@ $^ 
+
+CilkSort: cilksort.cpp
+	$(CXX) -O3 -DSEQUENTIAL -I./inc -o $@ $^ 
+
+SRADir: srad.cpp
+	$(CXX) -O3 -DSEQUENTIAL -I./inc -o $@ $^ 
+
+SRAD: srad.cpp
+	$(CXX) -O3 -DUSE_REGULAR -DSEQUENTIAL -I./inc -o $@ $^ 
+
+clean-obj:
+	rm -rf *.o
+
+clean:
+	rm -rf *.o $(TARGETS)

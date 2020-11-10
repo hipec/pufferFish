@@ -1,0 +1,30 @@
+TARGETS := SORir SOR CilkSort LULESHir LULESH SRADir SRAD
+
+all: clean $(TARGETS) clean-obj
+
+CilkSort: cilksort.cpp
+	g++ -O3 -DUSE_CILK -I./inc -fcilkplus -lcilkrts -o $@ $^ -lm
+
+LULESH: lulesh.cpp
+	g++ -O3 -DUSE_CILK -DUSE_REGULAR -I./inc -fcilkplus -lcilkrts -o $@ $^ -lm
+
+LULESHir: lulesh.cpp
+	g++ -O3 -DUSE_CILK -I./inc -fcilkplus -lcilkrts -o $@ $^ -lm
+
+SOR: sor1d.cpp
+	g++ -O3 -DUSE_CILK -DUSE_REGULAR -I./inc -fcilkplus -lcilkrts -o $@ $^ -lm
+
+SORir: sor1d.cpp
+	g++ -O3 -DUSE_CILK -I./inc -fcilkplus -lcilkrts -o $@ $^ -lm
+
+SRADir: srad.cpp
+	g++ -O3 -DUSE_CILK -I./inc -fcilkplus -lcilkrts -o $@ $^ 
+
+SRAD: srad.cpp
+	g++ -O3 -DUSE_REGULAR -DUSE_CILK -I./inc -fcilkplus -lcilkrts -o $@ $^ 
+
+clean-obj:
+	rm -rf *.o
+
+clean:
+	rm -rf *.o $(TARGETS)

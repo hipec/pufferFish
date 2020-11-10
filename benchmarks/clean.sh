@@ -1,0 +1,1 @@
+rm -f CilkSort LULESH SOR SORir LULESHir SRAD SRADir
