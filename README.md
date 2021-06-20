@@ -12,7 +12,8 @@ BibTex:
    year = {2020},
    location = {Pune, India},
    publisher= {IEEE},
-   note = {to appear},
+   pages={251-260},
+   doi={10.1109/HiPC50609.2020.00039},
 } 
 ```
 Or:
