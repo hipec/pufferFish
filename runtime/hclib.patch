@@ -1,0 +1,2048 @@
+diff --git a/Makefile.am b/Makefile.am
+index 88dc302..74ece68 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -18,7 +18,8 @@ library_include_HEADERS = inc/hclib-timer.h inc/hclib-rt.h inc/hclib.h \
+ 						  src/inc/hclib-atomics.h inc/hclib-place.h \
+ 						  inc/hclib-async-struct.h inc/hclib.hpp inc/hclib-future.hpp \
+ 						  inc/hclib-task.h inc/hclib_common.h src/inc/litectx.h \
+-						  src/fcontext/fcontext.h src/inc/hclib-tree.h
++						  src/fcontext/fcontext.h src/inc/hclib-tree.h inc/hclib-likwid.h \
++						  inc/hclib-numa.hpp inc/hclib-numa.h inc/likwid.mak
+ 
+ MAINTAINERCLEANFILES = Makefile.in \
+ 	aclocal.m4 \
+diff --git a/clean.sh b/clean.sh
+index 8c1f640..68d8a70 100755
+--- a/clean.sh
++++ b/clean.sh
+@@ -7,3 +7,4 @@ rm -rf autom4te.cache
+ rm -rf compileTree
+ rm -f configure
+ rm -rf hclib-install
++rm -rf config
+diff --git a/configure.ac b/configure.ac
+index 0589494..ee04b47 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -35,6 +35,62 @@ CPPFLAGS=$CPPFLAGS_BACKUP
+ ########### GET LOW LEVEL DETAILS IN THE INSTALLATION #############
+ ###################################################################
+ 
++### FULLY RELAXED HPT SEMANTICS
++AC_ARG_ENABLE(pufferFish,
++    AS_HELP_STRING([--enable-pufferFish],
++    [turn on Elastic HPT semantics (Default is false)]),
++    [with_pufferFish=$enableval],
++    [with_pufferFish=no;])
++
++AS_IF([test "x$with_pufferFish" != xno],
++      [ AC_MSG_NOTICE([Enabled Elastic HPT semantics ]) ],
++      [ AC_MSG_NOTICE([Disabled Elastic HPT semantics ]) ])
++
++AM_CONDITIONAL(PUFFER_FISH, test "x$with_pufferFish" != xno)
++### End ELASTIC HPT SEMANTICS
++
++### STRICT HPT SEMANTICS
++AC_ARG_ENABLE(hptDA,
++    AS_HELP_STRING([--enable-hptDA],
++    [turn on strict HPT semantics (Default is false)]),
++    [with_hptDA=$enableval],
++    [with_hptDA=no;])
++
++AS_IF([test "x$with_hptDA" != xno],
++      [ AC_MSG_NOTICE([Enabled strict HPT semantics ]) ],
++      [ AC_MSG_NOTICE([Disabled strict HPT semantics ]) ])
++
++AM_CONDITIONAL(HPT_DA, test "x$with_hptDA" != xno)
++### End STRICT HPT SEMANTICS
++
++### ENABLE LIKWID
++AC_ARG_ENABLE(likwid,
++    AS_HELP_STRING([--enable-likwid],
++    [turn on HC performance counters (Default is false)]),
++    [with_likwid=$enableval],
++    [with_likwid=no;])
++
++AS_IF([test "x$with_likwid" != xno],
++      [ AC_MSG_NOTICE([Enabled HC performance counters]) ],
++      [ AC_MSG_NOTICE([Disabled HC performance counters]) ])
++
++AM_CONDITIONAL(LIKWID, test "x$with_likwid" != xno)
++### End LIKWID
++
++### ENABLE RANDOM WORK STEALING
++AC_ARG_ENABLE(randws,
++    AS_HELP_STRING([--enable-randws],
++    [turn on random work-stealing (Default is false)]),
++    [with_randws=$enableval],
++    [with_randws=no;])
++
++AS_IF([test "x$with_randws" != xno],
++      [ AC_MSG_NOTICE([Enabled random work-stealing ]) ],
++      [ AC_MSG_NOTICE([Disabled random work-stealing ]) ])
++
++AM_CONDITIONAL(RANDOM_WS, test "x$with_randws" != xno)
++### End RANDOM WORK STEALING
++
+ ### Turn on runtime verbosity
+ AC_ARG_ENABLE(verbose,
+     AS_HELP_STRING([--enable-verbose],
+diff --git a/hpt/hpt-hippo-1numa.xml b/hpt/hpt-hippo-1numa.xml
+new file mode 100644
+index 0000000..2e458d6
+--- /dev/null
++++ b/hpt/hpt-hippo-1numa.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0"?>
++<!DOCTYPE HPT SYSTEM "hpt.dtd">
++
++<HPT version="0.1" info="an HPT for Hippo, 4 NUMA domains">
++    <place num="1" type="mem">
++          <place num="1" type="cache"> <!-- 2 L3 cache per node -->
++            <place num="2" type="cache"> <!-- 2 L3 cache per node -->
++                <worker num="4"/>
++            </place>
++          </place>
++    </place>
++</HPT>
+diff --git a/hpt/hpt-hippo-2numa.xml b/hpt/hpt-hippo-2numa.xml
+new file mode 100644
+index 0000000..2c63a66
+--- /dev/null
++++ b/hpt/hpt-hippo-2numa.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0"?>
++<!DOCTYPE HPT SYSTEM "hpt.dtd">
++
++<HPT version="0.1" info="an HPT for Hippo, 4 NUMA domains">
++    <place num="1" type="mem">
++        <place num="2" type="cache"> <!-- 4 NUMA nodes -->
++            <place num="2" type="cache"> <!-- 2 L3 cache per node -->
++                <worker num="4"/>
++            </place>
++        </place>
++    </place>
++</HPT>
+diff --git a/hpt/hpt-hippo-3numa.xml b/hpt/hpt-hippo-3numa.xml
+new file mode 100644
+index 0000000..2494fa1
+--- /dev/null
++++ b/hpt/hpt-hippo-3numa.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0"?>
++<!DOCTYPE HPT SYSTEM "hpt.dtd">
++
++<HPT version="0.1" info="an HPT for Hippo, 4 NUMA domains">
++    <place num="1" type="mem">
++        <place num="3" type="cache"> <!-- 4 NUMA nodes -->
++            <place num="2" type="cache"> <!-- 2 L3 cache per node -->
++                <worker num="4"/>
++            </place>
++        </place>
++    </place>
++</HPT>
+diff --git a/hpt/hpt-hippo-4numa.xml b/hpt/hpt-hippo-4numa.xml
+new file mode 100644
+index 0000000..6eb653a
+--- /dev/null
++++ b/hpt/hpt-hippo-4numa.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0"?>
++<!DOCTYPE HPT SYSTEM "hpt.dtd">
++
++<HPT version="0.1" info="an HPT for Hippo, 4 NUMA domains">
++    <place num="1" type="mem">
++        <place num="4" type="cache"> <!-- 4 NUMA nodes -->
++            <place num="2" type="cache"> <!-- 2 L3 cache per node -->
++                <worker num="4"/>
++            </place>
++        </place>
++    </place>
++</HPT>
+diff --git a/hpt/hpt-hippo-cache-only.xml b/hpt/hpt-hippo-cache-only.xml
+new file mode 100644
+index 0000000..f6c53ba
+--- /dev/null
++++ b/hpt/hpt-hippo-cache-only.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0"?>
++<!DOCTYPE HPT SYSTEM "hpt.dtd">
++
++<HPT version="0.1" info="an HPT for Hippo, 4 NUMA domains">
++    <place num="1" type="mem">
++        <place num="8" type="cache"> <!-- 8 L3 cache below RAM -->
++            <worker num="4"/> <!-- 4 workers per L3 -->
++        </place>
++    </place>
++</HPT>
+diff --git a/hpt/hpt-hippo-numa.xml b/hpt/hpt-hippo-numa.xml
+new file mode 100644
+index 0000000..6eb653a
+--- /dev/null
++++ b/hpt/hpt-hippo-numa.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0"?>
++<!DOCTYPE HPT SYSTEM "hpt.dtd">
++
++<HPT version="0.1" info="an HPT for Hippo, 4 NUMA domains">
++    <place num="1" type="mem">
++        <place num="4" type="cache"> <!-- 4 NUMA nodes -->
++            <place num="2" type="cache"> <!-- 2 L3 cache per node -->
++                <worker num="4"/>
++            </place>
++        </place>
++    </place>
++</HPT>
+diff --git a/inc/hclib-likwid.h b/inc/hclib-likwid.h
+new file mode 100644
+index 0000000..76d6697
+--- /dev/null
++++ b/inc/hclib-likwid.h
+@@ -0,0 +1,33 @@
++/*
++ * Copyright 2017 Rice University
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef HCLIB_LIKWID_H_
++#define HCLIB_LIKWID_H_
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++void likwid_init();
++void likwid_finalize();
++void likwid_start();
++void likwid_stop();
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/inc/hclib-numa.h b/inc/hclib-numa.h
+new file mode 100644
+index 0000000..cb31deb
+--- /dev/null
++++ b/inc/hclib-numa.h
+@@ -0,0 +1,36 @@
++/*
++ * Copyright 2017 Rice University
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++void* hclib_numa_malloc_block_cyclic(size_t datatype, size_t count, size_t rows /*this will be 0 in case of 1D array*/, size_t cols /*this will be 0 in case of 2D array*/);
++void* hclib_numa_malloc_onnode(size_t datatype, size_t count, int node);
++void* hclib_numa_malloc_interleave(size_t datatype, size_t count, size_t rows /*this will be 0 in case of 1D array*/, size_t cols /*this will be 0 in case of 2D array*/);
++void* hclib_numa_malloc_local(size_t datatype, size_t count);
++void hclib_numa_malloc_dimension(void* array, size_t *rows, size_t *cols);
++void hclib_numa_free(void* array);
++size_t hclib_numa_malloc_blockchunksize(void* array);
++place_t* place_with_max_pages(void* array, size_t start_index, size_t end_index);
++place_t* get_root_place();
++
++//serial elision support
++int hclib_serial_elision_enabled(place_t*);
++
++#ifdef __cplusplus
++}
++#endif
+diff --git a/inc/hclib-numa.hpp b/inc/hclib-numa.hpp
+new file mode 100644
+index 0000000..3457b97
+--- /dev/null
++++ b/inc/hclib-numa.hpp
+@@ -0,0 +1,141 @@
++/*
++ * Copyright 2017 Rice University
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++namespace hclib {
++
++template<typename T>
++T* numa_interleave_malloc(size_t count) {
++    //Only 1D support as of now
++    return (T*) hclib_numa_malloc_interleave(sizeof(T), count, 0, 0);
++}
++
++template<typename T>
++T** numa_interleave_malloc(size_t row, size_t col) {
++    T** var = (T**) hclib_numa_malloc_interleave(sizeof(T*), row, row, 0);
++    T* heap = (T*) hclib_numa_malloc_interleave(sizeof(T), col*row, 0, 0);
++    for(int i=0; i<row; i++) {
++        var[i] = heap;
++	heap += col;
++    }
++    return var;
++}
++
++template<typename T>
++T* numa_local_malloc(size_t count) {
++    return (T*) hclib_numa_malloc_local(sizeof(T), count);
++}
++
++template<typename T>
++T* numa_node_malloc(int node, size_t count) {
++    return (T*) hclib_numa_malloc_onnode(sizeof(T), count, node);
++}
++
++template<typename T>
++T* numa_malloc(size_t count) {
++    return (T*) hclib_numa_malloc_block_cyclic(sizeof(T), count, 0, 0);
++}
++
++template<typename T>
++T** numa_malloc(size_t row, size_t col) {
++    T** var = (T**) hclib_numa_malloc_block_cyclic(sizeof(T*), row, row, 0);
++    const size_t chunksize = hclib_numa_malloc_blockchunksize(var);
++    const int nodes = row / chunksize;
++    for(int j=0; j<nodes; j++) {
++	int start=j*chunksize;
++	int end = j+1==nodes ? row : start+chunksize;
++        T* heap = (T*) hclib_numa_malloc_onnode(sizeof(T), col*chunksize, j);
++        for(int i=start; i<end; i++) {
++            var[i] = heap;
++	    heap += col;
++	}
++    }
++    return var;
++}
++
++template<typename T>
++T*** numa_malloc(size_t row, size_t col, size_t z) {
++    T*** var = (T***) hclib_numa_malloc_block_cyclic(sizeof(T**), row, row, col);
++    const size_t chunksize = hclib_numa_malloc_blockchunksize(var);
++    const int nodes = row / chunksize;
++    for(int j=0; j<nodes; j++) {
++	int start=j*chunksize;
++	int end = j+1==nodes ? row : start+chunksize;
++        T** heap2d = (T**) hclib_numa_malloc_onnode(sizeof(T*), col*chunksize, j);
++        T* heap1d  = (T*) hclib_numa_malloc_onnode(sizeof(T), col*chunksize*z, j);
++        for(int i=start; i<end; i++) {
++            var[i] = heap2d;
++	    for(int k=0; k<col; k++) {
++                var[i][k] = heap1d;
++		heap1d += z;
++	    }
++	    heap2d += col;
++	}
++
++    }
++    return var;
++}
++
++template<typename T>
++void numa_free(T* mem) {
++    size_t rows, cols;
++    hclib_numa_malloc_dimension((void*) mem, &rows, &cols);
++    if(rows == 0) { // one dimensional array
++	assert(cols==0);
++        hclib_numa_free(mem);
++    } else if(rows>0 && cols==0){ // two dimensional array
++	T** array = (T**) mem;
++        const size_t chunksize = hclib_numa_malloc_blockchunksize(mem);
++        const int nodes = rows / chunksize;
++        for(int j=0; j<nodes; j++) {
++	    int start=j*chunksize;
++	    hclib_numa_free(array[start]);
++	}
++	hclib_numa_free(mem);
++    } else if(rows>0 && cols>0) { //three dimensional array
++	T*** array = (T***) mem;
++        const size_t chunksize = hclib_numa_malloc_blockchunksize(mem);
++        const int nodes = rows / chunksize;
++        for(int j=0; j<nodes; j++) {
++	    int start=j*chunksize;
++	    hclib_numa_free(array[start][0]);
++	    hclib_numa_free(array[start]);
++	}
++	hclib_numa_free(mem);
++    } else {
++        assert(0);
++    }
++}
++
++template <typename T>
++inline void async_hinted(void* memory, size_t start_index, size_t end_index, T &&lambda) {
++    MARK_OVH(current_ws()->id);
++    place_t* pl = place_with_max_pages(memory, start_index, end_index);
++    typedef typename std::remove_reference<T>::type U;
++    hclib_async(lambda_wrapper<U>, new U(lambda), nullptr, nullptr, pl, 0);
++}
++
++template <typename T>
++inline void async_normal(T &&lambda) {
++    MARK_OVH(current_ws()->id);
++    place_t* pl = get_root_place();
++    typedef typename std::remove_reference<T>::type U;
++    hclib_async(lambda_wrapper<U>, new U(lambda), nullptr, nullptr, pl, 0);
++}
++
++//serial elision support
++int serial_elision_enabled(place_t*);
++
++}
+diff --git a/inc/hclib-place.h b/inc/hclib-place.h
+index deed7cf..1e58be3 100644
+--- a/inc/hclib-place.h
++++ b/inc/hclib-place.h
+@@ -36,6 +36,13 @@ typedef struct place_t {
+ 	struct place_t ** children;
+ 	struct hclib_worker_state * workers; /* directly attached cpu workers */
+ 	struct hc_deque_t * deques;
++	//------->Support for Elasticity
++	volatile int serial_elision;
++	//<-------Support for Elasticity
++	//------->Support for Relaxed HPT
++        struct place_t ** siblings; /* the sibling link for the relaxed HPT*/
++        int nSiblings;
++        //<-------Support for Relaxed HPT
+ 	int ndeques; /* only for deques */
+ 	int id;
+ 	int did; /* the mapping device id */
+diff --git a/inc/hclib-rt.h b/inc/hclib-rt.h
+index e9c9ec4..cbbdf91 100644
+--- a/inc/hclib-rt.h
++++ b/inc/hclib-rt.h
+@@ -18,7 +18,9 @@
+ #include <stdio.h>
+ #include <pthread.h>
+ #include <assert.h>
++#ifdef HCLIB_LITECTX_STRATEGY
+ #include "litectx.h"
++#endif
+ 
+ #ifndef HCLIB_RT_H_
+ #define HCLIB_RT_H_
+@@ -41,6 +43,10 @@ typedef struct hclib_worker_state {
+         pthread_t t; // the pthread associated
+         struct finish_t* current_finish;
+         struct place_t * pl; // the directly attached place
++	//------->Support for Relaxed HPT
++        struct place_t * pl_leaf; // the leaf place where this worker belongs
++	int node_id;
++        //<-------Support for Relaxed HPT
+         // Path from root to worker's leaf place. Array of places.
+         struct place_t ** hpt_path;
+         struct hc_context * context;
+@@ -50,8 +56,16 @@ typedef struct hclib_worker_state {
+         struct hc_deque_t * deques;
+         int id; // The id, identify a worker
+         int did; // the mapping device id
++	// Statistics
++        long total_push;
++        long total_numa_push;
++        long total_steals;
++        long total_serial_elisions;
++	unsigned int rand_next;
++#ifdef HCLIB_LITECTX_STRATEGY
+         LiteCtx *curr_ctx;
+         LiteCtx *root_ctx;
++#endif
+ } hclib_worker_state;
+ 
+ #define HCLIB_MACRO_CONCAT(x, y) _HCLIB_MACRO_CONCAT_IMPL(x, y)
+@@ -95,6 +109,7 @@ void hclib_end_finish();
+ void hclib_user_harness_timer(double dur);
+ void hclib_launch(generic_frame_ptr fct_ptr, void * arg);
+ 
++void hclib_kernel(generic_frame_ptr fct_ptr, void * arg);
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/inc/hclib-timer.h b/inc/hclib-timer.h
+index 9b3e9a4..45d9136 100644
+--- a/inc/hclib-timer.h
++++ b/inc/hclib-timer.h
+@@ -36,6 +36,7 @@
+ void hclib_initStats  (int numWorkers);
+ void hclib_setState   (int wid, int state);
+ void hclib_get_avg_time (double* tWork, double *tOvh, double* tSearch);
++double wctime();
+ 
+ #define MARK_BUSY(w)	hclib_setState(w, HCLIB_WORK);
+ #define MARK_OVH(w)		hclib_setState(w, HCLIB_OVH);
+diff --git a/inc/hclib.h b/inc/hclib.h
+index 1e66113..9943892 100644
+--- a/inc/hclib.h
++++ b/inc/hclib.h
+@@ -48,6 +48,11 @@ typedef void *(*futureFct_t)(void *arg);
+ 
+ void hclib_launch(asyncFct_t fct_ptr, void * arg);
+ 
++/*
++ * Wrap the main kernel for timed execution
++ */
++void hclib_kernel(asyncFct_t fct_ptr, void * arg);
++
+ /*
+  * Async definition and API
+  */
+diff --git a/inc/hclib.hpp b/inc/hclib.hpp
+index 3227d5c..256c7ac 100644
+--- a/inc/hclib.hpp
++++ b/inc/hclib.hpp
+@@ -20,9 +20,11 @@
+ #include "hclib.h"
+ #include "hclib_common.h"
+ #include "hclib-rt.h"
++#include "hclib-numa.h"
+ #include "hclib-async.hpp"
+ #include "hclib-forasync.hpp"
+ #include "hclib-promise.hpp"
++#include "hclib-numa.hpp"
+ 
+ namespace hclib {
+ 
+@@ -45,6 +47,10 @@ place_t **get_children_of_place(place_t *pl, int *num_children);
+ place_t *get_root_place();
+ char *get_place_name(place_t *pl);
+ 
++template <typename T>
++inline void kernel(T &&lambda) {
++    hclib_kernel(lambda_wrapper<T>, new T(lambda));
++}
+ }
+ 
+ #endif
+diff --git a/inc/hclib_common.h b/inc/hclib_common.h
+index 731b78c..bba5fab 100644
+--- a/inc/hclib_common.h
++++ b/inc/hclib_common.h
+@@ -40,7 +40,16 @@
+ /** @brief No accumulator argument provided. */
+ #define NO_ACCUM NULL
+ 
+-#define HCLIB_LITECTX_STRATEGY 1
++/*
++ * Lightweight context switch is disabled in PufferFish. Enabling it
++ * would disrupt the locality. Whenever there will be pending tasks
++ * in a finish scope, context would be created at end finish scope and
++ * this entire context (thread stack of worker) would be available
++ * for stealing once the task counter in this finish scope reaches zero.
++ * This will always void the scope hint provided in the async_hinted
++ * as this task could be stolen by any worker.
++ */
++//#define HCLIB_LITECTX_STRATEGY 1
+ // #define VERBOSE 1
+ 
+ #endif
+diff --git a/inc/likwid.mak b/inc/likwid.mak
+new file mode 100644
+index 0000000..72850a1
+--- /dev/null
++++ b/inc/likwid.mak
+@@ -0,0 +1,33 @@
++CC  = gcc
++FC  = ifort
++AS  = as
++AR  = ar
++PAS = ./perl/AsmGen.pl
++GEN_PAS = ./perl/generatePas.pl
++GEN_GROUPS = ./perl/generateGroups.pl
++GEN_PMHEADER = ./perl/gen_events.pl
++
++ANSI_CFLAGS   =
++#ANSI_CFLAGS += -pedantic
++#ANSI_CFLAGS += -Wextra
++#ANSI_CFLAGS += -Wall
++
++CFLAGS   =  -O2 -std=c99 -Wno-format -fPIC
++FCFLAGS  = -module ./  # ifort
++#FCFLAGS  = -J ./  -fsyntax-only  #gfortran
++PASFLAGS  = x86-64
++ASFLAGS  = 
++CPPFLAGS =
++LFLAGS   =  -pthread
++
++SHARED_CFLAGS = -fPIC -fvisibility=hidden
++SHARED_LFLAGS = -shared -fvisibility=hidden
++
++DEFINES  = -DPAGE_ALIGNMENT=4096
++DEFINES  += -DLIKWID_MONITOR_LOCK
++DEFINES  += -DDEBUGLEV=0
++
++INCLUDES =
++LIBS     = -lm -lrt
++
++
+diff --git a/src/Makefile.am b/src/Makefile.am
+index fecc9e7..79a6d83 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -8,6 +8,30 @@ CFLAGS = -Wall -g -O3 -std=c11
+ CXXFLAGS = -Wall -g -O3 -std=c++11
+ LDFLAGS = -lpthread
+ 
++if RANDOM_WS
++RANDOM_WS_FLAGS = -DRANDOM_WS
++else
++RANDOM_WS_FLAGS =
++endif
++
++if LIKWID
++LIKWID_FLAGS = -DLIKWID
++else
++LIKWID_FLAGS =
++endif
++
++if PUFFER_FISH
++PUFFER_FISH_FLAGS = -DPUFFER_FISH
++else
++PUFFER_FISH_FLAGS =
++endif
++
++if HPT_DA
++HPT_DA_FLAGS = -DHPT_DA
++else
++HPT_DA_FLAGS =
++endif
++
+ if HC_VERBOSE
+ HC_FLAGS_V = -DVERBOSE
+ else
+@@ -28,10 +52,10 @@ lib_LTLIBRARIES = libhclib.la
+ noinst_LTLIBRARIES =
+ libhclib_la_LIBADD =
+ 
+-AM_CXXFLAGS = $(HC_FLAGS_V) $(PRODUCTION_SETTINGS_FLAGS) \
++AM_CXXFLAGS = $(HC_FLAGS_V) $(PRODUCTION_SETTINGS_FLAGS) $(LIKWID_FLAGS) $(RANDOM_WS_FLAGS) $(HPT_DA_FLAGS) $(PUFFER_FISH_FLAGS) \
+ 			  $(shell xml2-config --cflags)
+-libhclib_la_SOURCES = hclib-runtime.c hclib-deque.c hclib-hpt.c hclib-thread-bind.c \
+-					 hclib-promise.c hclib-timer.c hclib_cpp.cpp hclib.c hclib-tree.c
++libhclib_la_SOURCES = hclib-runtime.c hclib-deque.c hclib-hpt.c hclib-thread-bind.c hclib-likwid.c \
++					 hclib-promise.c hclib-timer.c hclib_cpp.cpp hclib.c hclib-tree.c hclib-numa.c
+ 
+ if X86
+ if OSX
+diff --git a/src/hclib-hpt.c b/src/hclib-hpt.c
+index 226fb10..2572a68 100644
+--- a/src/hclib-hpt.c
++++ b/src/hclib-hpt.c
+@@ -37,6 +37,21 @@ void *unsupported_place_type_err(place_t *pl) {
+     exit(1);
+ }
+ 
++unsigned int hc_rand(hclib_worker_state* ws) {
++    ws->rand_next = ws->rand_next * 1103515245 + 12345;
++    return ((unsigned int)(ws->rand_next / 65536) % 32768);
++}
++
++#if defined(RANDOM_WS) //Random work-stealing without HPT using concurrent deque
++inline int get_victim(hclib_worker_state* ws, int numworkers) {
++    int vic;
++    int me = ws->id;
++    do {
++        vic = hc_rand(ws) % numworkers;
++    } while(vic == me);
++    return vic;
++}
++
+ /**
+  * HPT: Try to steal a frame from another worker.
+  * 1) First look for work in current place worker deques
+@@ -45,7 +60,116 @@ void *unsupported_place_type_err(place_t *pl) {
+  */
+ hclib_task_t *hpt_steal_task(hclib_worker_state *ws) {
+     MARK_SEARCH(ws->id); // Set the state of this worker for timing
++    place_t *pl = ws->pl;
++    while (pl != NULL) {
++        hc_deque_t *deqs = pl->deques;
++        int nb_deq = pl->ndeques;
++        int victim = get_victim(ws, nb_deq);
++        hc_deque_t* d = &deqs[victim];
++        hclib_task_t* buff = deque_steal(&(d->deque));
++        if(buff) ws->total_steals++;
++        return buff;
++    }
++    return NULL;
++}
++int hclib_serial_elision_enabled(place_t* pl) {
++    return 0;
++}
++#elif defined(PUFFER_FISH) || defined(HPT_DA)
++#define SERIAL_ELISION_TASK_LIMIT 2
++int hclib_serial_elision_enabled(place_t* pl) {
++#ifdef PUFFER_FISH
++    return pl->serial_elision;
++#else
++    return 0;
++#endif
++}
+ 
++hclib_task_t * steal_from_place(place_t* pl, hclib_worker_state *ws) {
++    hc_deque_t *deqs = pl->deques;
++    int nb_deq = pl->ndeques;
++    for (int i=1; i<nb_deq; i++) {
++        int victim = ((ws->id + i) % nb_deq);
++        hc_deque_t *d = &deqs[victim];
++        hclib_task_t *buff = deque_steal(&(d->deque));
++        if (buff) { /* steal succeeded */
++#ifdef VERBOSE
++            printf("hpt_steal_task: worker %d successful steal from deque %p, pl %p, "
++                       "level %d\n", ws->id, d, d->pl, d->pl->level);
++#endif
++            ws->total_steals++;
++            return buff;
++        }
++    }
++    return NULL;
++}
++
++hclib_task_t *search_from_cousin(place_t* pl, hclib_worker_state *ws) {
++    if(pl->nChildren ==0) return NULL;
++    place_t* child = NULL;
++    for(int i=0; i<pl->nChildren; i++) {
++        hclib_task_t *buff = steal_from_place(pl->children[i], ws);
++        if(buff) return buff;
++    }
++    for(int i=0; i<pl->nChildren; i++) {
++        hclib_task_t *buff = search_from_cousin(pl->children[i], ws);
++        if(buff) return buff;
++    }
++    return NULL;
++}
++
++hclib_task_t *hpt_steal_task(hclib_worker_state *ws) {
++    MARK_SEARCH(ws->id); // Set the state of this worker for timing
++    place_t* pl = ws->pl_leaf;
++
++    //1. First attempt to steal from workers under the same leaf place as yours
++    hclib_task_t *buff = NULL;
++    buff = steal_from_place(pl, ws);
++    if(buff) return buff;
++#ifdef PUFFER_FISH
++    __sync_val_compare_and_swap(&pl->serial_elision, AVAILABLE, UNAVAILABLE);
++#endif
++    while(pl != NULL) {
++        //2. attempt to steal from parent place
++        if(pl->parent != NULL) {
++            buff = steal_from_place(pl->parent, ws);
++            if(buff) return buff;
++        }
++#ifndef HPT_DA
++        /*
++         * ``pl->parent->parent==NULL'' means place representing a NUMA node
++         * We allow hierarchical work-stealing where steal can only go up the tree,
++         * except for the places under same NUMA node.
++         *
++         * If fully-relaxed hierarchical work-stealing is desired then comment
++         * off the following ``if'' check.
++         */
++        if(pl->parent && pl->parent->parent) {
++            //3. Nothing found in parent. Now go to my sibling places
++            for(int i=0; i<pl->nSiblings; i++) {
++                buff = steal_from_place(pl->siblings[i], ws);
++                if(buff) return buff;
++            }
++            //4. Nothing found in sibling. BFS from all cousins and their children
++            for(int i=0; i<pl->nSiblings; i++) {
++                buff = search_from_cousin(pl->siblings[i], ws);
++                if(buff) return buff;
++            }
++        }
++#endif // HPT_DA
++        pl = pl->parent;
++    }
++    return NULL;
++}
++#else //Default Round-Robin Work-Stealing using HPT
++/**
++ * HPT: Try to steal a frame from another worker.
++ * 1) First look for work in current place worker deques
++ * 2) If unsuccessful, start over at step 1) in the parent
++ *    place all to the hpt top.
++ */
++hclib_task_t *hpt_steal_task(hclib_worker_state *ws) {
++    MARK_SEARCH(ws->id); // Set the state of this worker for timing
+     place_t *pl = ws->pl;
+     while (pl != NULL) {
+         hc_deque_t *deqs = pl->deques;
+@@ -63,6 +187,7 @@ hclib_task_t *hpt_steal_task(hclib_worker_state *ws) {
+                 printf("hpt_steal_task: worker %d successful steal from deque %p, pl %p, "
+                        "level %d\n", ws->id, d, d->pl, d->pl->level);
+ #endif
++                ws->total_steals++;
+                 return buff;
+             }
+         }
+@@ -72,6 +197,7 @@ hclib_task_t *hpt_steal_task(hclib_worker_state *ws) {
+     }
+     return NULL;
+ }
++#endif
+ 
+ /**
+  * HPT: Pop items from a worker deque
+@@ -80,6 +206,10 @@ hclib_task_t *hpt_steal_task(hclib_worker_state *ws) {
+  * 3) If nothing found down to the bottom, look upward starting from Q.
+  */
+ hclib_task_t *hpt_pop_task(hclib_worker_state *ws) {
++#if defined (PUFFER_FISH) 
++    hclib_task_t * task = deque_pop(&ws->current->deque);
++    return task;
++#else 
+     // go HPT downward and then upward of my own deques
+     hc_deque_t *current = ws->current;
+     hc_deque_t *pivot = current;
+@@ -112,6 +242,7 @@ hclib_task_t *hpt_pop_task(hclib_worker_state *ws) {
+         }
+     }
+     return NULL;
++#endif
+ }
+ 
+ place_t *hclib_get_current_place() {
+@@ -221,6 +352,11 @@ hc_deque_t *get_deque_hpt(hclib_worker_state *ws, place_t *pl) {
+ 
+ int deque_push_place(hclib_worker_state *ws, place_t *pl, hclib_task_t *ele) {
+     hc_deque_t *deq = get_deque_place(ws, pl);
++#if defined (PUFFER_FISH) 
++    if(pl == ws->pl_leaf && (deq->deque.tail-deq->deque.head)>SERIAL_ELISION_TASK_LIMIT) {
++        __sync_val_compare_and_swap(&pl->serial_elision, UNAVAILABLE, AVAILABLE);
++    }
++#endif
+     return deque_push(&deq->deque, ele);
+ }
+ 
+@@ -347,7 +483,40 @@ void hc_hpt_init(hc_context *context) {
+         ws->current = &(current->deques[id]);
+     }
+ 
+-#ifdef VERBOSE
++#if defined (PUFFER_FISH) || defined(HPT_DA)
++    /*
++     * Find siblings for each place in HPT
++     */
++    const int num_numanodes = context->places[0]->nChildren;
++    const int workers_per_numanode = hclib_num_workers() / num_numanodes;
++    for (i = 0; i < context->nplaces; i++) {
++        place_t *pl = context->places[i];
++	pl->serial_elision = UNAVAILABLE;
++        if(i==0) pl->nSiblings = 0;
++        if(pl->nChildren > 0) {
++            int nSiblings = pl->nChildren - 1;
++            for(int j=0; j<pl->nChildren; j++) {
++                pl->children[j]->nSiblings = nSiblings;
++                pl->children[j]->siblings = (place_t **) malloc(sizeof(place_t *) * nSiblings);
++                for (int k=1,index=0; k<pl->nChildren; k++) {
++                    int sbid = (j + k) % pl->nChildren; //set siblings in round robin starting from RHS (reduces starvation)
++                    pl->children[j]->siblings[index++] = pl->children[sbid];
++                }
++            }
++        }
++        hclib_worker_state *w = pl->workers;
++        if (w != NULL) {
++            while (w != NULL) {
++                w->pl_leaf = pl;
++		w->node_id = w->id / workers_per_numanode;
++                w->current = get_deque_place(w, pl);
++                w = w->next_worker;
++            }
++        }
++    }
++#endif
++
++#ifndef VERBOSE
+     /*Print HPT*/
+     int level = context->places[0]->level;
+     printf("Level %d: ", level);
+@@ -360,6 +529,13 @@ void hc_hpt_init(hc_context *context) {
+         }
+ 
+         printf("Place %d %s ", pl->id, place_type_to_str(pl->type));
++	if(pl->nSiblings) {
++	    printf("{Siblings: ");
++            for(int j=0; j<pl->nSiblings; j++) {
++                printf("%d ",pl->siblings[j]->id);
++	    }
++	    printf("} ");
++	}
+         hclib_worker_state *w = pl->workers;
+         if (w != NULL) {
+             printf("[ ");
+@@ -372,7 +548,7 @@ void hc_hpt_init(hc_context *context) {
+ 
+         place_t *c = pl->child;
+         if (c != NULL) {
+-            printf("{ ");
++            printf("{Childrens: ");
+             while (c != NULL) {
+                 printf("%d ", c->id);
+                 c = c->nnext;
+@@ -1062,6 +1238,17 @@ void free_hpt(place_t *hpt) {
+     place_node_t *tmp;
+     place_t *plp = hpt;
+ 
++#if defined (PUFFER_FISH) || defined(HPT_DA)
++    hclib_worker_state* ws = CURRENT_WS_INTERNAL;
++    for (int i = 0; i < ws->context->nplaces; i++) {
++        place_t *pl = ws->context->places[i];
++        if(pl->nSiblings>0) {
++            pl->nSiblings=0;
++            free(pl->siblings);
++        }
++    }
++#endif
++
+     while (plp != NULL) {
+         tmp = (place_node_t *)  malloc(sizeof(place_node_t));
+         tmp->data = plp;
+diff --git a/src/hclib-likwid.c b/src/hclib-likwid.c
+new file mode 100644
+index 0000000..6613889
+--- /dev/null
++++ b/src/hclib-likwid.c
+@@ -0,0 +1,200 @@
++/*
++ * Copyright 2017 Rice University
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <hclib-likwid.h>
++
++#ifdef LIKWID  //default is enabled. Disable it during installation by using --disable-likwid
++#include <hclib-internal.h>
++#include <assert.h>
++#include <likwid.h>
++#include <stdlib.h>
++#include <string.h>
++
++/*
++ * Tutorial on integrating likwid in C/C++ application can be found here:
++ * https://github.com/RRZE-HPC/likwid/wiki/TutorialLikwidC
++ *
++ * Authors: Vivek Kumar and Koustuv Kanungo
++ */
++
++// For AMD
++#define NUM_EVENTS 189
++
++//-- global variables --->
++static int* cpus;
++static int gid;
++static char* estr;
++static int* cpus_in_use;
++static int total_workers;
++static char *evts[NUM_EVENTS];
++static int num_evts = 0;
++//<-- global variables ---
++
++//forward declaration
++void likwid_dump();
++
++/*
++ * This must be called on master thread after all the 
++ * workers are up and running.
++ *
++ * Should be called by the master thread only (outside the parallel region)
++ */
++void likwid_init() {
++    int err, i;
++    // No meaning of using likwid unless threads have been pinned
++    assert(getenv("HCLIB_BIND_THREADS"));
++    cpus_in_use = get_thread_bind_map();
++    total_workers = CURRENT_WS_INTERNAL->context->nworkers;
++    // No meaning of using erfcounters unless HCLIB_LIKWIDS are specified
++    assert(getenv("HCLIB_LIKWID_COUNTERS"));
++    setenv("LIKWID_FORCE", "1", 1);
++    // Initialize the topology module and fill internal 
++    // structures with the topology of the current system
++    err = topology_init();
++    assert(err>=0 && "Error in topology_init()");
++    //Get a pointer to the topology information structure holding data 
++    //like number of total/online CPUs, number of CPU sockets and a 
++    //sub list for all threads with their IDs and location.
++    CpuTopology_t topo = get_cpuTopology();
++    // Create affinity domains. Commonly only needed when reading Uncore counters
++    affinity_init();
++    cpus = (int*)malloc(topo->numHWThreads * sizeof(int));
++    assert(cpus!=NULL && "Malloc failed"); 
++    for (i=0;i<topo->numHWThreads;i++) { 
++        cpus[i] = topo->threadPool[i].apicId;
++    }
++    // Must be called before perfmon_init() but only if you want to use another
++    // access mode as the pre-configured one. For direct access (0) you have to
++    // be root.
++    //accessClient_setaccessmode(0);
++
++    //Initialize the perfmon module that enables performance measurements. 
++    //Depending on the access mode, it starts the access daemon or 
++    //initializes direct access to the MSR and PCI devices.
++    // Started on all physical cores but for reading we'll use only
++    // those that have our threads
++    err = perfmon_init(topo->numHWThreads, cpus);
++    if(err<0) {
++        topology_finalize();
++	assert(0 && "Error in perfmon_init");
++    }
++    //Add the event string eventSet to the perfmon module for measurments. 
++    //gid is the ID of the event group used later to setup the 
++    //counters and retrieve the measured results. 
++    estr = getenv("HCLIB_LIKWID_COUNTERS");
++    gid = perfmon_addEventSet(estr);
++    if (gid < 0) {
++        perfmon_finalize();
++        topology_finalize();
++	assert(0 && "Error in perfmon_addEventSet");
++    }
++    //Program the hardware counter registers to reflect the the event 
++    //string idenified by gid. 
++    err = perfmon_setupCounters(gid);
++    if (err < 0) {
++        perfmon_finalize();
++        topology_finalize();
++	assert(0 && "Error in perfmon_setupCounters");
++    }
++
++    char *ptr = strtok(estr, ",");
++    while (ptr != NULL) {
++        evts[num_evts] = (char *) malloc(sizeof(char) * (strlen(ptr) + 1));
++        strcpy(evts[num_evts], ptr);
++        num_evts++;
++        ptr = strtok(NULL, ",");
++    }
++}
++
++/*
++ * Should be called by master thread only (outside the parallel region)
++ */
++void likwid_finalize() {
++    likwid_dump();
++    // Print the result of every thread/CPU for all events in estr.
++    free(cpus);
++    //Close the connection to the performance monitoring module. 
++    perfmon_finalize();
++    affinity_finalize();
++    //Empty and delete the data structures of the topology module. 
++    //The data structures returned by get_cpuInfo() and get_cpuTopology() 
++    //are not usable afterwards
++    topology_finalize();
++}
++
++/*
++ * Accessible in the user code.
++ * Start the counters that have been previously set up by 
++ * perfmon_setupCounters(). The counter registered are 
++ * zeroed before enabling the counters
++ *
++ * Should be called by master thread only (outside the parallel region)
++ */
++void likwid_start() {
++    // Start all counters in the previously set up event set.
++    int err = perfmon_startCounters();
++    if (err < 0) {
++        perfmon_finalize();
++        topology_finalize();
++        assert(0 && "Error in perfmon_startCounters");
++    }
++}
++
++/*
++ * Accessible in the user code.
++ * Stop the counters that have been previously started by 
++ * perfmon_startCounters(). All config registers get 
++ * zeroed before reading the counter register.
++ *
++ * Should be called by master thread only (outside the parallel region)
++ */
++void likwid_stop() {
++    // Stop all counters in the previously set up event set.
++    int err = perfmon_stopCounters();
++    if (err < 0) {
++        perfmon_finalize();
++        topology_finalize();
++        assert(0 && "Error in perfmon_stopCounters");
++    }
++}
++
++void likwid_dump() {
++    int i,j;
++    double* results = (double*) malloc(sizeof(double) * num_evts);
++    memset(results, 0x00, sizeof(double) * num_evts);
++    fprintf(stdout,"\n============================ Tabulate Statistics ============================\n");
++    for(i=0; i<num_evts; i++) {
++        fprintf(stdout,"%s\t",evts[i]);
++	for(j=0; j<total_workers; j++) {
++            results[i]+=perfmon_getLastResult(gid, i, cpus_in_use[j]);
++	}
++    }
++    fprintf(stdout,"\n");
++    for(i=0; i<num_evts; i++) {
++	fprintf(stdout,"%f\t",results[i]);
++    }
++    fprintf(stdout,"\n=============================================================================\n");
++    fflush(stdout);
++    free(results);
++}
++
++#else
++void likwid_init(){ }
++void likwid_finalize(){ }
++void likwid_start(){ }
++void likwid_stop(){ }
++void likwid_dump() { }
++#endif
+diff --git a/src/hclib-numa.c b/src/hclib-numa.c
+new file mode 100644
+index 0000000..5936b4d
+--- /dev/null
++++ b/src/hclib-numa.c
+@@ -0,0 +1,345 @@
++/*
++ * Copyright 2017 Rice University
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++/*
++ * Author: Vivek Kumar
++ */
++
++#if defined (HPT_DA) || defined(PUFFER_FISH)
++
++#define _GNU_SOURCE
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++#include <sys/mman.h>
++#include <numa.h>
++#include <numaif.h>
++/* Numa Allocate  */
++#define BITS_PER_PAGE 12
++#define NUM_PGS_TO_BYTES(num_pgs) (num_pgs << BITS_PER_PAGE)
++#define PAGE_SIZE 4096
++#define PAGE_OFFSET_MASK (~(0xffffffffffffffffL << BITS_PER_PAGE))
++#define CPUS_PER_SOCKET 8
++
++#include <hclib-internal.h>
++#include <hclib-numa.h>
++
++typedef enum {
++    BLOCK_CYCLIC=0,
++    ON_NODE,
++    INTERLEAVE,
++    LOCAL,
++    TOTAL_TYPES /*Ensure this is the last event here*/
++}alloc_type;
++
++struct _numa_memory_header_t {
++    alloc_type type; 
++    size_t datatype;
++    size_t count;
++    size_t block_cyclic_chunksize; /*in node_malloc we store node id here */
++    size_t nbytes;
++    size_t rows;
++    size_t cols;
++};
++
++#define HEADER_SIZE (sizeof(struct _numa_memory_header_t))
++#define GET_HEADER(mem) (((struct _numa_memory_header_t*)mem)-1)
++#define GET_ALLOC_TYPE(mem) (GET_HEADER(mem)->type)
++#define GET_NODE_MALLOC_ID(mem) (GET_HEADER(mem)->block_cyclic_chunksize)
++#define GET_ARRAY_LENGTH(mem) (GET_HEADER(mem)->count)
++#define GET_ARRAY_SIZE(mem) (GET_HEADER(mem)->datatype * GET_ARRAY_LENGTH(mem))
++#define GET_ABSOLUTE_SIZE(mem) (((struct _numa_memory_header_t*)mem)->nbytes)
++#define TOTAL_BYTES(mem) (HEADER_SIZE + GET_ARRAY_SIZE(mem))
++#define GET_BLOCKCYCLIC_CHUNKSIZE(mem) (GET_HEADER(mem)->block_cyclic_chunksize)
++#define GET_PAGE_INDEX(mem, index) ((GET_HEADER(mem)->datatype*index)/PAGE_SIZE)
++
++static int num_numa_nodes=-1;
++
++inline void store_header(struct _numa_memory_header_t* mem, alloc_type type, size_t datatype, size_t count, size_t rows, size_t cols) {
++    mem->datatype=datatype;
++    mem->type=type;
++    mem->count=count;
++    mem->rows=rows;
++    mem->cols=cols;
++    mem->nbytes=datatype*count+HEADER_SIZE;
++    if(type == BLOCK_CYCLIC) {
++        mem->block_cyclic_chunksize = count / get_root_place()->nChildren;
++    } else if(type == INTERLEAVE) {
++        mem->block_cyclic_chunksize = rows;
++    } else {
++        mem->block_cyclic_chunksize = 0;
++    }
++}
++
++void force_pagefault(char* curr_addr, size_t bytes) {
++    // write to the first type to get the actual page allocation
++    for(char *tmp = curr_addr;
++	tmp < (curr_addr+bytes); tmp += NUM_PGS_TO_BYTES(1)) {
++      tmp[0] = '0';
++    }
++}
++
++/**
++ * Acknowledgements: 
++ * Below three methods with prefix "cilk_" are copied from:
++ * https://github.com/wustl-pctg/NUMA-WS-Benchmarks/blob/master/benchmarks/numa_allocate.cpp
++ * 1) cilk_allocate_pages
++ * 2) cilk_pattern_bind_memory
++ * 3) cilk_pattern_bind_memory_numa
++ */
++
++/**
++ * allocate num_pgs * pages (4K) of memory
++ * returns pointer to the beginning of allocated memory
++ * or NULL if allocation fails.
++ **/
++char * cilk_allocate_pages(unsigned long long num_pgs) {
++  void *addr = NULL;
++  addr = mmap(NULL, NUM_PGS_TO_BYTES(num_pgs), PROT_READ | PROT_WRITE,
++	      MAP_PRIVATE | MAP_ANONYMOUS, -1/*fd*/, 0/*offset*/);
++  assert(addr != NULL && addr != (void *)-1);
++  return (char *)addr;
++}
++
++/**
++ * addr: beginning of memory to be pinned
++ * partition: an array of size num_numa_nodes; partition[i] specifies the
++ *            number of pages to pin on socket i.
++ * Given beginning addr and partition, bind the memory according
++ * to the partition, in the order of low to high addresses.
++ **/
++void cilk_pattern_bind_memory(char *addr, int num_blocks, int *pattern_array, size_t *partition) {
++
++  char *curr_addr = addr;
++  // to get around an off-by-one bug
++  // see https://www.spinics.net/lists/linux-mm/msg07089.html
++  int num_nodes = numa_max_node() + 2;
++  for(int i=0; i < num_blocks; i++) {
++    unsigned long bytes = NUM_PGS_TO_BYTES(partition[i]);
++    unsigned long nmask = 0x0;
++    nmask = nmask | (0x1 << pattern_array[i]);
++    // fprintf(stderr, "binding addr %p of %lu bytes to %lx.\n",
++    //        curr_addr, bytes, nmask);
++    if(pattern_array[i] != -1) {
++        errno = 0;
++        int ret = mbind(curr_addr, bytes, MPOL_PREFERRED, &nmask,
++                num_nodes, 0/*flags*/);
++        if(ret != 0) {
++          if(errno) perror("Fail to mbind");
++        }
++    }
++    force_pagefault(curr_addr, bytes);
++    curr_addr += bytes;
++  }
++}
++
++char * cilk_pattern_bind_memory_numa(size_t num_pgs, int num_blocks, int *pattern_array) {
++
++  assert(num_pgs > 0);
++  size_t partition[num_blocks];
++  size_t smallest_part = num_pgs / num_blocks;
++  size_t left_over = num_pgs - (smallest_part * num_blocks);
++  size_t sum = 0;
++
++  // allocate a big chunck of memory
++  char *addr = cilk_allocate_pages(num_pgs);
++  // check the addr returned is page aligned
++  assert(addr != NULL && ((unsigned long)addr & PAGE_OFFSET_MASK) == 0);
++
++  // print_mem_policy_on_thread();
++
++  // calculate how we want to partition the memory across sockets
++  for(int i=num_blocks-1; i >= 0; i--) {
++    if(left_over > 0) {
++      partition[i] = smallest_part + 1;
++      left_over = left_over - 1;
++    } else {
++      partition[i] = smallest_part;
++    }
++    sum += partition[i];
++  }
++  assert(sum == num_pgs);
++
++  cilk_pattern_bind_memory(addr, num_blocks, pattern_array, partition); // perform memory binding
++
++  return addr;
++}
++
++void* hclib_numa_malloc_local(size_t datatype, size_t count) {
++    size_t nbytes = (datatype * count) + HEADER_SIZE;
++    struct _numa_memory_header_t* mem = NULL;
++    if(posix_memalign((void**)&mem, PAGE_SIZE, nbytes) != 0) {
++        perror("mbind failed");
++	exit(-1);
++    }
++    store_header(mem, LOCAL, datatype, count, 0, 0);
++    return ((void*)++mem);
++}
++
++char* get_page_aligned_allocation(size_t datatype, size_t count) {
++    size_t nbytes = (datatype * count) + HEADER_SIZE;
++    size_t pagesize = sysconf(_SC_PAGESIZE);
++    size_t num_pages = (nbytes / pagesize) + (nbytes % pagesize == 0 ? 0 : 1);
++    // allocate a big chunck of memory
++    char *addr = cilk_allocate_pages(num_pages);
++    // check the addr returned is page aligned
++    assert(addr != NULL && ((unsigned long)addr & PAGE_OFFSET_MASK) == 0);
++    return addr;
++}
++
++void* hclib_numa_malloc_onnode(size_t datatype, size_t count, int node) {
++    char* addr = get_page_aligned_allocation(datatype, count);
++    size_t nbytes = (datatype * count) + HEADER_SIZE;
++    num_numa_nodes = get_root_place()->nChildren;
++    // to get around an off-by-one bug
++    // see https://www.spinics.net/lists/linux-mm/msg07089.html
++    int num_nodes = numa_max_node() + 2;
++    unsigned long nmask = 0x0;
++    nmask = nmask | (0x1 << node);
++    errno = 0;
++    if(mbind(addr, nbytes, MPOL_PREFERRED, &nmask, num_nodes, 0/*flags*/)==-1) {
++        perror("mbind failed");
++	exit(-1);
++    }
++    force_pagefault(addr, nbytes);
++    struct _numa_memory_header_t* mem = (struct _numa_memory_header_t*) addr;
++    store_header(mem, ON_NODE, datatype, count, 0, 0);
++    mem->block_cyclic_chunksize=node;
++    return ((void*)++mem);
++}
++
++void* hclib_numa_malloc_interleave(size_t datatype, size_t count, size_t rows, size_t cols) {
++    struct _numa_memory_header_t* mem = NULL;
++    num_numa_nodes = get_root_place()->nChildren;
++    if(num_numa_nodes==1) {
++        mem = hclib_numa_malloc_local(datatype, count);
++    } else {
++        char* addr = get_page_aligned_allocation(datatype, count);
++        size_t nbytes = (datatype * count) + HEADER_SIZE;
++        // to get around an off-by-one bug
++        // see https://www.spinics.net/lists/linux-mm/msg07089.html
++        int num_nodes = numa_max_node() + 2;
++        //unsigned long mymask = *numa_get_mems_allowed()->maskp;
++        unsigned long mymask = 0;
++        for(int i = 0; i < hclib_num_workers() / CPUS_PER_SOCKET; i++) {
++            mymask |= (1L << i);
++        }
++        if (mbind(addr, nbytes, MPOL_INTERLEAVE, &mymask, num_nodes, 0) == -1) {
++            perror("mbind failed");
++	    exit(-1);
++        }
++        force_pagefault(addr, nbytes);
++        mem = (struct _numa_memory_header_t*) addr;
++    }
++    store_header(mem, INTERLEAVE, datatype, count, rows, cols);
++    return ((void*)++mem);
++}
++
++void hclib_numa_free(void* mem) {
++    if(GET_ALLOC_TYPE(mem) == LOCAL) {
++        free(GET_HEADER(mem));
++    } else {
++        size_t nbytes = TOTAL_BYTES(mem);
++        size_t pagesize = sysconf(_SC_PAGESIZE);
++        int num_pgs = (nbytes / pagesize) + (nbytes % pagesize == 0 ? 0 : 1);
++        munmap(GET_HEADER(mem), NUM_PGS_TO_BYTES(num_pgs));
++    }
++}
++
++void* hclib_numa_malloc_block_cyclic(size_t datatype, size_t count, size_t rows, size_t cols) {
++    num_numa_nodes = get_root_place()->nChildren;
++    size_t nbytes = (datatype * count) + HEADER_SIZE;
++    size_t pagesize = sysconf(_SC_PAGESIZE);
++    size_t num_pages = (nbytes / pagesize) + (nbytes % pagesize == 0 ? 0 : 1);
++    int num_blocks = 4;
++    int pinning[4], pattern_array[4];
++
++    if(num_numa_nodes == 2) {
++        pinning[0] = pinning[1] = 0;
++        pinning[2] = pinning[3] = 1;
++        pattern_array[0] = pattern_array[1] = 0;
++        pattern_array[2] = pattern_array[3] = 1;
++    } else if (num_numa_nodes == 4) {
++	for(int i=0; i<4; i++) {
++            pinning[i] = pattern_array[i] = i;
++	}
++    } else if (num_numa_nodes == 3) {
++      pinning[3] = -1;
++      pattern_array[3] = -1;
++    } else if (num_numa_nodes == 1) {
++	pinning[0] = pattern_array[0] = 0;
++	for(int i=1; i<4; i++) {
++            pinning[i] = pattern_array[i] = -1;
++	}
++    } else {
++        assert(0 && "Unsupported NUMA machine");
++    }
++
++    struct _numa_memory_header_t* mem = NULL;
++    if(num_numa_nodes==1) {
++        mem = hclib_numa_malloc_local(datatype, count);
++    } else {
++        mem = (struct _numa_memory_header_t*) cilk_pattern_bind_memory_numa(num_pages, num_blocks, pattern_array);
++    }
++    store_header(mem, BLOCK_CYCLIC, datatype, count, rows, cols);
++    return ((void*)++mem);
++}
++
++void hclib_numa_malloc_dimension(void* array, size_t *rows, size_t *cols){
++    *rows = GET_HEADER(array)->rows;
++    *cols = GET_HEADER(array)->cols;
++}
++
++size_t hclib_numa_malloc_blockchunksize(void* array) {
++    return GET_BLOCKCYCLIC_CHUNKSIZE(array);
++}
++
++place_t* get_root_place() {
++    return CURRENT_WS_INTERNAL->context->places[0];
++}
++
++place_t* place_with_max_pages(void* array, size_t start_index, size_t end_index) {
++    int start_node = -1, start_page;
++    int end_node = -1, end_page;
++    switch(GET_ALLOC_TYPE(array)) {
++        case BLOCK_CYCLIC:
++            start_node = start_index / GET_BLOCKCYCLIC_CHUNKSIZE(array);
++            end_node = end_index / GET_BLOCKCYCLIC_CHUNKSIZE(array);
++	    break;
++        case INTERLEAVE:
++	    start_page = GET_PAGE_INDEX(array, start_index); 
++	    end_page = GET_PAGE_INDEX(array, end_index); 
++            start_node = start_page%num_numa_nodes;  
++            end_node = end_page%num_numa_nodes;  
++	    break;
++	case ON_NODE:
++	    return CURRENT_WS_INTERNAL->context->places[0]->children[GET_NODE_MALLOC_ID(array)];
++	default:
++	    assert(0 && "Unsupported type in place_with_max_pages");
++    }
++    if(start_node != end_node) {
++        return CURRENT_WS_INTERNAL->context->places[0];
++    } else if (start_node == CURRENT_WS_INTERNAL->node_id) {
++	CURRENT_WS_INTERNAL->total_numa_push++;
++        return CURRENT_WS_INTERNAL->pl_leaf;
++    } else {
++	CURRENT_WS_INTERNAL->total_numa_push++;
++        return CURRENT_WS_INTERNAL->context->places[0]->children[start_node];
++    }
++}
++
++#endif
+diff --git a/src/hclib-runtime.c b/src/hclib-runtime.c
+index 57beab0..24e6496 100644
+--- a/src/hclib-runtime.c
++++ b/src/hclib-runtime.c
+@@ -17,14 +17,16 @@
+ #include <pthread.h>
+ #include <sys/time.h>
+ #include <stddef.h>
++#include <limits.h>
+ 
+ #include <hclib.h>
+ #include <hclib-internal.h>
+ #include <hclib-atomics.h>
+ #include <hclib-finish.h>
+ #include <hclib-hpt.h>
++#include <hclib-likwid.h>
+ 
+-static double benchmark_start_time_stats = 0;
++static double benchmark_time_stats = 0;
+ static double user_specified_timer = 0;
+ // TODO use __thread on Linux?
+ pthread_key_t ws_key;
+@@ -52,26 +54,13 @@ void log_(const char *file, int line, hclib_worker_state *ws,
+     va_end(l);
+ }
+ 
+-// Statistics
+-int total_push_outd;
+-int *total_push_ind;
+-int *total_steals;
+-
+-static inline void increment_async_counter(int wid) {
+-    total_push_ind[wid]++;
+-}
+-
+-static inline void increment_steals_counter(int wid) {
+-    total_steals[wid]++;
+-}
+-
+ void set_current_worker(int wid) {
+     if (pthread_setspecific(ws_key, hclib_context->workers[wid]) != 0) {
+         log_die("Cannot set thread-local worker state");
+     }
+ 
+     if (bind_threads) {
+-        bind_thread(wid, NULL, 0);
++	bind_thread(wid, hclib_context->nworkers);
+     }
+ }
+ 
+@@ -79,6 +68,7 @@ int get_current_worker() {
+     return ((hclib_worker_state *)pthread_getspecific(ws_key))->id;
+ }
+ 
++#ifdef HCLIB_LITECTX_STRATEGY
+ static void set_curr_lite_ctx(LiteCtx *ctx) {
+     CURRENT_WS_INTERNAL->curr_ctx = ctx;
+ }
+@@ -95,6 +85,7 @@ static __inline__ void ctx_swap(LiteCtx *current, LiteCtx *next,
+     // switched back to this context
+     set_curr_lite_ctx(current);
+ }
++#endif
+ 
+ hclib_worker_state *current_ws() {
+     return CURRENT_WS_INTERNAL;
+@@ -112,23 +103,21 @@ void hclib_global_init() {
+                                   &hclib_context->nplaces, &hclib_context->nproc,
+                                   &hclib_context->workers, &hclib_context->nworkers);
+ 
++    hclib_context->done_flags = (worker_done_t *)malloc(
++                                    hclib_context->nworkers * sizeof(worker_done_t));
+     for (int i = 0; i < hclib_context->nworkers; i++) {
+         hclib_worker_state *ws = hclib_context->workers[i];
+         ws->context = hclib_context;
+         ws->current_finish = NULL;
++#ifdef HCLIB_LITECTX_STRATEGY
+         ws->curr_ctx = NULL;
+         ws->root_ctx = NULL;
+-    }
+-    hclib_context->done_flags = (worker_done_t *)malloc(
+-                                    hclib_context->nworkers * sizeof(worker_done_t));
+-    total_push_outd = 0;
+-    total_steals = (int *)malloc(hclib_context->nworkers * sizeof(int));
+-    HASSERT(total_steals);
+-    total_push_ind = (int *)malloc(hclib_context->nworkers * sizeof(int));
+-    HASSERT(total_push_ind);
+-    for (int i = 0; i < hclib_context->nworkers; i++) {
+-        total_steals[i] = 0;
+-        total_push_ind[i] = 0;
++#endif
++	ws->rand_next= i+1;
++	ws->total_steals=0;
++        ws->total_push=0;
++        ws->total_numa_push=0;
++        ws->total_serial_elisions=0;
+         hclib_context->done_flags[i].flag = 1;
+     }
+ 
+@@ -221,8 +210,6 @@ void hclib_cleanup() {
+     pthread_key_delete(ws_key);
+ 
+     free(hclib_context);
+-    free(total_steals);
+-    free(total_push_ind);
+ }
+ 
+ static inline void check_in_finish(finish_t *finish) {
+@@ -265,11 +252,11 @@ static inline void rt_schedule_async(hclib_task_t *async_task,
+     LOG_DEBUG("rt_schedule_async: async_task=%p place=%p\n",
+             async_task, async_task->place);
+ 
++    const int wid = get_current_worker();
+     // push on worker deq
+     if (async_task->place) {
+         deque_push_place(ws, async_task->place, async_task);
+     } else {
+-        const int wid = get_current_worker();
+         LOG_DEBUG("rt_schedule_async: scheduling on worker wid=%d "
+                 "hclib_context=%p\n", wid, hclib_context);
+         if (!deque_push(&(hclib_context->workers[wid]->current->deque),
+@@ -309,15 +296,16 @@ static inline int is_eligible_to_schedule(hclib_task_t *async_task) {
+ void try_schedule_async(hclib_task_t *async_task, hclib_worker_state *ws) {
+     if (is_eligible_to_schedule(async_task)) {
+         rt_schedule_async(async_task, ws);
++	ws->total_push++;
+     }
+ }
+ 
+-void spawn_handler(hclib_task_t *task, place_t *pl, bool escaping) {
++void spawn_handler(hclib_task_t *task, place_t *pl, int property) {
+ 
+     HASSERT(task);
+ 
+     hclib_worker_state *ws = CURRENT_WS_INTERNAL;
+-    if (!escaping) {
++    if (property != ESCAPING_ASYNC) {
+         check_in_finish(ws->current_finish);
+         task->current_finish = ws->current_finish;
+         HASSERT(task->current_finish != NULL);
+@@ -338,10 +326,6 @@ void spawn_at_hpt(place_t *pl, hclib_task_t *task) {
+     task->current_finish = ws->current_finish;
+     task->place = pl;
+     try_schedule_async(task, ws);
+-#ifdef HC_COMM_WORKER_STATS
+-    const int wid = get_current_worker();
+-    increment_async_counter(wid);
+-#endif
+ }
+ 
+ void spawn(hclib_task_t *task) {
+@@ -349,12 +333,12 @@ void spawn(hclib_task_t *task) {
+ }
+ 
+ void spawn_escaping(hclib_task_t *task, hclib_future_t **future_list) {
+-    spawn_handler(task, NULL, true);
++    spawn_handler(task, NULL, ESCAPING_ASYNC);
+ }
+ 
+ void spawn_escaping_at(place_t *pl, hclib_task_t *task,
+                        hclib_future_t **future_list) {
+-    spawn_handler(task, pl, true);
++    spawn_handler(task, pl, ESCAPING_ASYNC);
+ }
+ 
+ void spawn_await_at(hclib_task_t *task, hclib_future_t **future_list,
+@@ -376,9 +360,6 @@ void find_and_run_task(hclib_worker_state *ws) {
+             // try to steal
+             task = hpt_steal_task(ws);
+             if (task) {
+-#ifdef HC_COMM_WORKER_STATS
+-                increment_steals_counter(ws->id);
+-#endif
+                 break;
+             }
+         }
+@@ -553,9 +534,6 @@ static void _help_finish_ctx(LiteCtx *ctx) {
+ 
+ static inline void slave_worker_finishHelper_routine(finish_t *finish) {
+     hclib_worker_state *ws = CURRENT_WS_INTERNAL;
+-#ifdef HC_COMM_WORKER_STATS
+-    const int wid = ws->id;
+-#endif
+ 
+     while (_hclib_atomic_load_relaxed(&finish->counter) > 0) {
+         // try to pop
+@@ -565,9 +543,6 @@ static inline void slave_worker_finishHelper_routine(finish_t *finish) {
+                 // try to steal
+                 task = hpt_steal_task(ws);
+                 if (task) {
+-#ifdef HC_COMM_WORKER_STATS
+-                    increment_steals_counter(wid);
+-#endif
+                     break;
+                 }
+             }
+@@ -674,6 +649,8 @@ void hclib_start_finish() {
+     hclib_worker_state *ws = CURRENT_WS_INTERNAL;
+     finish_t *finish = malloc(sizeof(*finish));
+     HASSERT(finish);
++    finish->parent = ws->current_finish;
++#if HCLIB_LITECTX_STRATEGY
+     /*
+      * Set finish counter to 1 initially to emulate the main thread inside the
+      * finish being a task registered on the finish. When we reach the
+@@ -686,25 +663,36 @@ void hclib_start_finish() {
+      * This would make it harder to detect when all tasks within the finish have
+      * completed, or just the tasks launched so far.
+      */
+-    finish->parent = ws->current_finish;
+-#if HCLIB_LITECTX_STRATEGY
+     finish->finish_deps = NULL;
+-#endif
+     check_in_finish(finish->parent); // check_in_finish performs NULL check
+-    ws->current_finish = finish;
+     _hclib_atomic_store_release(&finish->counter, 1);
++#else
++    finish->counter = 0;
++    if(finish->parent) {
++        check_in_finish(finish->parent); // check_in_finish performs NULL check
++    }
++#endif
++    ws->current_finish = finish;
+ }
+ 
+ void hclib_end_finish() {
+     finish_t *current_finish = CURRENT_WS_INTERNAL->current_finish;
+ 
++#if HCLIB_LITECTX_STRATEGY
+     HASSERT(_hclib_atomic_load_relaxed(&current_finish->counter) > 0);
+     help_finish(current_finish);
+     HASSERT(_hclib_atomic_load_relaxed(&current_finish->counter) == 0);
+-
+     check_out_finish(current_finish->parent); // NULL check in check_out_finish
+-
+     // Don't reuse worker-state! (we might not be on the same worker anymore)
++#else
++    if(_hclib_atomic_load_relaxed(&current_finish->counter) > 0) {
++        help_finish(current_finish);
++    }
++    HASSERT(_hclib_atomic_load_relaxed(&current_finish->counter) == 0);
++    if(current_finish->parent) {
++	check_out_finish(current_finish->parent);
++    }
++#endif
+     CURRENT_WS_INTERNAL->current_finish = current_finish->parent;
+     free(current_finish);
+ }
+@@ -720,15 +708,18 @@ void hclib_end_finish_nonblocking_helper(hclib_promise_t *event) {
+     // futures here, but there was no good way to free it...
+     // Since the promise datum is null until the promise is satisfied,
+     // we can use that as the null-terminator for our future list.
++#ifdef HCLIB_LITECTX_STRATEGY
+     hclib_future_t **finish_deps = (hclib_future_t**)&event->future.owner;
++#endif
+     HASSERT_STATIC(sizeof(event->future) == sizeof(event->datum) &&
+             offsetof(hclib_promise_t, future) == 0 &&
+             offsetof(hclib_promise_t, datum) == sizeof(hclib_future_t*),
+             "ad-hoc null terminator is correctly aligned in promise struct");
+     HASSERT(event->datum == NULL && UNINITIALIZED_PROMISE_DATA_PTR == NULL &&
+             "ad-hoc null terminator must have value NULL");
++#ifdef HCLIB_LITECTX_STRATEGY
+     current_finish->finish_deps = finish_deps;
+-
++#endif
+     // Check out this "task" from the current finish
+     check_out_finish(current_finish);
+ 
+@@ -747,43 +738,31 @@ int hclib_num_workers() {
+     return hclib_context->nworkers;
+ }
+ 
+-void hclib_gather_comm_worker_stats(int *push_outd, int *push_ind,
+-                                    int *steal_ind) {
+-    int asyncPush=0, steals=0, asyncCommPush=total_push_outd;
+-    for(int i=0; i<hclib_num_workers(); i++) {
+-        asyncPush += total_push_ind[i];
+-        steals += total_steals[i];
+-    }
+-    *push_outd = asyncCommPush;
+-    *push_ind = asyncPush;
+-    *steal_ind = steals;
+-}
+-
+ static double mysecond() {
+     struct timeval tv;
+     gettimeofday(&tv, 0);
+     return tv.tv_sec + ((double) tv.tv_usec / 1000000);
+ }
+ 
+-void runtime_statistics(double duration) {
+-    int asyncPush=0, steals=0, asyncCommPush=total_push_outd;
++void runtime_statistics() {
++    long asyncPush=0, steals=0, numaPush=0, elisions=0;
+     for(int i=0; i<hclib_num_workers(); i++) {
+-        asyncPush += total_push_ind[i];
+-        steals += total_steals[i];
++        asyncPush += hclib_context->workers[i]->total_push;
++        numaPush += hclib_context->workers[i]->total_numa_push;
++        elisions += hclib_context->workers[i]->total_serial_elisions;
++        steals += hclib_context->workers[i]->total_steals;
+     }
+ 
+     double tWork, tOvh, tSearch;
+     hclib_get_avg_time(&tWork, &tOvh, &tSearch);
+-
+-    double total_duration = user_specified_timer>0 ? user_specified_timer :
+-                            duration;
++    likwid_finalize();
+     printf("============================ MMTk Statistics Totals ============================\n");
+-    printf("time.mu\ttotalPushOutDeq\ttotalPushInDeq\ttotalStealsInDeq\ttWork\ttOverhead\ttSearch\n");
+-    printf("%.3f\t%d\t%d\t%d\t%.4f\t%.4f\t%.5f\n",total_duration,asyncCommPush,
+-           asyncPush,steals,tWork,tOvh,tSearch);
+-    printf("Total time: %.3f ms\n",total_duration);
++    printf("time.kernel\ttotalPush\ttotalSteals\ttotalNumaPush\ttWork\ttOverhead\ttSearch\n");
++    printf("%.3f\t%ld\t%ld\t%ld\t%.4f\t%.4f\t%.4f\n",user_specified_timer,
++           asyncPush,steals,numaPush,tWork,tOvh,tSearch);
++    printf("Total time: %.3f ms\n",benchmark_time_stats);
+     printf("------------------------------ End MMTk Statistics -----------------------------\n");
+-    printf("===== TEST PASSED in %.3f msec =====\n",duration);
++    printf("===== TEST PASSED in %.3f msec =====\n",benchmark_time_stats);
+ }
+ 
+ static void show_stats_header() {
+@@ -792,7 +771,7 @@ static void show_stats_header() {
+     printf("mkdir timedrun fake\n");
+     printf("\n");
+     printf("-----\n");
+-    benchmark_start_time_stats = mysecond();
++    benchmark_time_stats = mysecond();
+ }
+ 
+ void hclib_user_harness_timer(double dur) {
+@@ -801,11 +780,31 @@ void hclib_user_harness_timer(double dur) {
+ 
+ void showStatsFooter() {
+     double end = mysecond();
+-    HASSERT(benchmark_start_time_stats != 0);
+-    double dur = (end-benchmark_start_time_stats)*1000;
++    HASSERT(benchmark_time_stats != 0);
++    double dur = (end-benchmark_time_stats)*1000;
++    benchmark_time_stats = dur;
+     runtime_statistics(dur);
+ }
+ 
++void zero_initialize_counters() {
++    hclib_worker_state** workers = CURRENT_WS_INTERNAL->context->workers;
++    for(int i=0; i<hclib_num_workers(); i++) {
++        workers[i]->total_steals = 0;
++        workers[i]->total_push= 0;
++        workers[i]->total_numa_push= 0;
++        workers[i]->total_serial_elisions= 0;
++    }
++}
++
++void hclib_kernel(generic_frame_ptr fct_ptr, void *arg) {
++    zero_initialize_counters();
++    likwid_start();
++    double start = mysecond();
++    (*fct_ptr)(arg);
++    user_specified_timer = (mysecond() - start)*1000;
++    likwid_stop();
++}
++
+ /*
+  * Main entrypoint for runtime initialization, this function must be called by
+  * the user program before any HC actions are performed.
+@@ -820,11 +819,13 @@ static void hclib_init() {
+         show_stats_header();
+     }
+ 
++#if 0
+     const char *hpt_file = getenv("HCLIB_HPT_FILE");
+     if (hpt_file == NULL) {
+         fprintf(stderr, "WARNING: Running without a provided HCLIB_HPT_FILE, "
+                 "will make a best effort to generate a default HPT.\n");
+     }
++#endif
+ 
+     hclib_entrypoint();
+ }
+@@ -875,7 +876,12 @@ static void hclib_finalize() {
+ 
+ void hclib_launch(generic_frame_ptr fct_ptr, void *arg) {
+     hclib_init();
++    likwid_init();
++#ifdef HCLIB_LITECTX_STRATEGY
+     hclib_async(fct_ptr, arg, NO_FUTURE, NO_PHASER, ANY_PLACE, NO_PROP);
++#else
++    fct_ptr(arg);
++#endif
+     hclib_finalize();
+ }
+ 
+diff --git a/src/hclib-thread-bind.c b/src/hclib-thread-bind.c
+index 860d8d3..5465e83 100644
+--- a/src/hclib-thread-bind.c
++++ b/src/hclib-thread-bind.c
+@@ -15,18 +15,26 @@
+  */
+ 
+ #include <stdio.h>
++#include <locale.h>
++#include <time.h>
+ #define _GNU_SOURCE
+ #define __USE_GNU
+-#include <xlocale.h>
++// #include <xlocale.h>
+ #include <unistd.h>
+ #include <sched.h>
+ #include <errno.h>
+ #include <stdlib.h>
++#include <string.h>
+ /** Platform specific thread binding implementations -- > ONLY FOR LINUX **/
+ 
+ #include "hclib-rt.h"
+ 
+ #ifdef __linux
++#include <pthread.h>
++static int round_robin = -1;
++static int* bind_map = NULL;
++static pthread_mutex_t _lock = PTHREAD_MUTEX_INITIALIZER;
++
+ int get_nb_cpus() {
+     int numCPU = sysconf(_SC_NPROCESSORS_ONLN);
+     return numCPU;
+@@ -46,7 +54,7 @@ void bind_thread_with_mask(int *mask, int lg) {
+         /* Set affinity */
+         int res = sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
+         if (res != 0) {
+-            printf("ERROR: ");
++            fprintf(stdout,"ERROR: ");
+             if (errno == ESRCH) {
+                 HASSERT("THREADBINDING ERROR: ESRCH: Process not found!\n");
+             }
+@@ -68,32 +76,64 @@ void bind_thread_rr(int worker_id) {
+     /*bind worker_id to cpu_id round-robin fashion*/
+     int nbCPU = get_nb_cpus();
+     int mask = worker_id % nbCPU;
+-    //printf("HCLIB: INFO -- Binding worker %d to cpu_id %d\n", worker_id, mask);
+     bind_thread_with_mask(&mask, 1);
+ }
+ 
+ /* Bind threads according to bind map */
+-void bind_thread_map(int worker_id, int *bind_map, int bind_map_size) {
++void bind_thread_map(int worker_id, int bind_map_size) {
+     int mask = bind_map[worker_id % bind_map_size];
+-    //printf("HCLIB: INFO -- Binding worker %d to cpu_id %d\n", worker_id, mask);
++    fprintf(stdout,"HCLIB_INFO: Binding worker %d to cpu_id %d\n", worker_id, mask);
++    fflush(stdout);
+     bind_thread_with_mask(&mask, 1);
+ }
+ 
+ /** Thread binding api to bind a worker thread using a particular binding strategy **/
+-void bind_thread(int worker_id, int *bind_map, int bind_map_size) {
+-    if (bind_map_size == 0) {
++void bind_thread(int worker_id, int nworkers) {
++    assert(pthread_mutex_lock(&_lock) == 0);
++    if(round_robin == -1) {
++        char* map = getenv("HCLIB_BIND_THREADS");
++	assert(map);
++	bind_map = (int*) malloc(sizeof(int) * nworkers);
++	assert(bind_map);
++        int index=0;
++	char *token = strtok(map, ",");
++        while(token) {
++            bind_map[index++]=atoi(token);
++	    token = strtok(NULL, ",");
++	}	
++	if(nworkers>1 && index==nworkers) {
++            fprintf(stdout,"HCLIB_INFO: Thread Binding as per Bind Map\n");
++            fflush(stdout);
++            round_robin=0;
++	}
++	else {
++            fprintf(stdout,"HCLIB_INFO: Round Robin Thread Binding\n");
++            fflush(stdout);
++            round_robin=1;
++	    for(index=0; index<nworkers; index++) bind_map[index] = index;
++	}
++    }
++    assert(pthread_mutex_unlock(&_lock) == 0);
++
++    if (round_robin == 1) {
+         /* Round robin binding */
+         bind_thread_rr(worker_id);
+-    } else if (bind_map_size > 0 && bind_map != NULL) {
+-        bind_thread_map(worker_id, bind_map, bind_map_size);
+-    } else {
+-        fprintf(stderr, "ERROR: unknown thread binding strategy\n");
+-        HASSERT(0);
++    } else { /*Bind map provided */
++        bind_thread_map(worker_id, nworkers);
+     }
+ }
++
++int* get_thread_bind_map() {
++    assert(bind_map);
++    return bind_map;
++}
+ #else
+-void bind_thread(int worker_id, int *bind_map, int bind_map_size) {
++void bind_thread(int worker_id, int nworkers) {
+ 
++}
++int* get_thread_bind_map() { 
++    assert(0 && "This API should be called only with HCLIB_BIND_THREADS");
++    return NULL;
+ }
+ #endif
+ 
+diff --git a/src/hclib-timer.c b/src/hclib-timer.c
+index ed2187e..29ca56c 100644
+--- a/src/hclib-timer.c
++++ b/src/hclib-timer.c
+@@ -40,7 +40,7 @@ static int numWorkers = -1;
+ #endif
+ double avgtime_nstates[HCLIB_NSTATES];
+ 
+-inline double wctime() {
++double wctime() {
+     struct timeval tv;
+     gettimeofday(&tv, NULL);
+     return (tv.tv_sec + 1E-6 * tv.tv_usec);
+diff --git a/src/hclib_cpp.cpp b/src/hclib_cpp.cpp
+index 5e8d335..03f54cf 100644
+--- a/src/hclib_cpp.cpp
++++ b/src/hclib_cpp.cpp
+@@ -28,6 +28,10 @@ int hclib::num_workers() {
+     return hclib_num_workers();
+ }
+ 
++int hclib::serial_elision_enabled(place_t* pl) {
++    return hclib_serial_elision_enabled(pl);
++}
++
+ int hclib::get_num_places(hclib::place_type_t type) {
+     return hclib_get_num_places(type);
+ }
+diff --git a/src/inc/hclib-internal.h b/src/inc/hclib-internal.h
+index 1e0d68f..73a8c0b 100644
+--- a/src/inc/hclib-internal.h
++++ b/src/inc/hclib-internal.h
+@@ -101,7 +101,8 @@ void log_(const char * file, int line, hclib_worker_state * ws, const char * for
+         ...);
+ 
+ // thread binding
+-void bind_thread(int worker_id, int *bind_map, int bind_map_size);
++void bind_thread(int worker_id, int nworkers);
++int* get_thread_bind_map();
+ 
+ int get_current_worker();
+ 
+@@ -113,4 +114,7 @@ int static inline _hclib_promise_is_satisfied(hclib_promise_t *p) {
+     return p->wait_list_head == SATISFIED_FUTURE_WAITLIST_PTR;
+ }
+ 
++#define UNAVAILABLE 0
++#define AVAILABLE 1
++unsigned int hc_rand(hclib_worker_state* ws);
+ #endif /* HCLIB_INTERNAL_H_ */
