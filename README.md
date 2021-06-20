@@ -10,7 +10,6 @@ BibTex:
    title = {{PufferFish: NUMA}-Aware Work-stealing Library using Elastic Tasks},
    booktitle={2020 IEEE 27th International Conference on High Performance Computing, Data, and Analytics (HiPC)},
    year = {2020},
-   location = {Pune, India},
    publisher= {IEEE},
    pages={251-260},
    doi={10.1109/HiPC50609.2020.00039},
@@ -18,4 +17,4 @@ BibTex:
 ```
 Or:
 
-V. Kumar. PufferFish: NUMA-Aware Work-stealing Library using Elastic Tasks. 2020 IEEE 27th International Conference on High Performance Computing, Data, and Analytics (HiPC), Pune, India, 2020 (to appear).
+V. Kumar. PufferFish: NUMA-Aware Work-stealing Library using Elastic Tasks. 2020 IEEE 27th International Conference on High Performance Computing, Data, and Analytics (HiPC), 2020, pp. 251-260, doi: 10.1109/HiPC50609.2020.00039.
